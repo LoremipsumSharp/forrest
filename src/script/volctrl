@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Requirements:
+#     amixer
+#         $ sudo apt-get install alsa-utils
+#     gnome-osd-client
+#         $ sudo apt-get install gnome-osd
+#
+# Usage:
+#     $ volctrl --up
+#     $ volctrl --down
+#     $ volctrl --up 5
+#     $ volctrl --down 5
+#
+# author: Forrest Y. Yu <forrest.yu@gmail.com>, http://forrestyu.net/
+
+cmd=$1
+g=$2
+if [ "x$g" == "x" ]; then
+    g="2dB"
+fi
+
+if [ "$cmd" == "--down" ]; then
+    amixer set Master "$g"-
+elif [ "$cmd" == "--up" ]; then
+    amixer set Master "$g"+
+else
+    gnome-osd-client -f "<message id='myplugin' osd_fake_translucent_bg='off' osd_vposition='bottom' animations='on' hide_timeout='5000' osd_halignment='center' osd_font='Sans 50'>Bad Argument</message>"
+    exit 100
+fi
+
+v=`amixer get Master | grep % | sed -e 's/\].*//g' -e 's/.*\[//g'`
+t=`amixer get Master | grep % | sed -e 's/.*\[//g' -e 's/\].*//g'`
+
+if [ "$cmd$t$v" == "--downon0%" ] || [ "$cmd$t" == "--upoff" -a "$v" != "0%" ]; then
+    amixer set Master toggle
+fi
+
+gnome-osd-client -f "<message id='myplugin' osd_fake_translucent_bg='off' osd_vposition='bottom' animations='on' hide_timeout='300' osd_halignment='center' osd_font='Sans 50'>Volume: $v</message>"
+
+exit 0

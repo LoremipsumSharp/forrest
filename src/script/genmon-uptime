@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# for Generic Monitor (xfce4-genmon-plugin)
+# author: Forrest Y. Yu <forrest.yu@gmail.com>, http://forrestyu.net/
+
+echo "<img>/usr/share/icons/oxygen/32x32/status/task-ongoing.png</img>"
+up=`uptime | cut -d',' -f1,2 | sed -e 's/.*up //g'`
+echo "<txt>"$up"</txt>"
+echo "<tool>`uptime`</tool>"

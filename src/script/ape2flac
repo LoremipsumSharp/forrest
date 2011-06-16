@@ -1,0 +1,245 @@
+#!/bin/bash
+
+# Requirements
+# ============
+#
+# mac (Monkey's Audio codec)
+#     http://repository.slacky.eu/slackware-11.0/multimedia/mac/3.99-u4-b5/src/
+#
+# flac
+#     $ sudo apt-get install flac
+#
+# cuebreakpoints
+#     $ sudo apt-get install cuetools
+#
+# shnsplit
+#     $ sudo apt-get install shntool
+
+# exit codes:
+SUCCESS=0
+ERR_BAD_PARAMETER_COUNT=1
+ERR_APE_NOT_EXIST=2
+ERR_BAD_PARAMETER=3
+ERR_BIN_NOT_EXIST=4
+ERR_IMPOSSIBLE=10
+BAD_LUCK=11
+
+# usage:
+printusage(){
+    echo "Usage:"
+    echo -e "\t`basename $0` [-h][-c][-d 0|1] APE_FILE"
+    echo "Note:"
+    echo -e "\t-d 0: delete ape file only"
+    echo -e "\t-d 1: delete ape file and cue file"
+    echo "e.g."
+    echo -e "\t`basename $0` -h"
+    echo -e "\t`basename $0` x.ape"
+    echo -e "\t`basename $0` x.ape y.ape"
+    echo -e "\t`basename $0` -c x.ape"
+    echo -e "\t`basename $0` -c x.ape y.ape"
+    echo -e "\t`basename $0` -c -d 0 x.ape y.ape"
+}
+
+check_bin() {
+    if [ -z `which $1` ]; then
+	echo "\`\`$1'' is needed but not found. Will now exit."
+	exit $ERR_BIN_NOT_EXIST
+    fi
+}
+
+# ape_without_cue x.ape
+ape_without_cue() {
+    apefile=$1
+    #apebase=`dirname $apefile`"/"`basename $apefile .ape`
+    apebase=${apefile%.*}
+
+    flacpath=$apebase
+    wavfile=$apebase".wav"
+    flacfile=$apebase".flac"
+
+    if [ ! -f "$apefile" ]; then
+	echo "APE file '"$apefile"' does not exist."
+	exit $ERR_APE_NOT_EXIST
+    fi
+
+    ext=${1##*.}
+    if [ $ext == "ape" ] || [ $ext == "APE" ]; then
+	echo
+	echo "##################################################"
+	echo "# "$apefile
+	echo "#  | "
+	echo "#  V "
+	echo "# "$flacfile
+	echo "##################################################"
+
+	echo "###############################"
+	echo "# ape -> wav"
+	echo "###############################"
+	mac $apefile $wavfile -d
+	echo
+	echo "###############################"
+	echo "# wav -> flac"
+	echo "###############################"
+	flac $wavfile
+	echo
+	echo "###############################"
+	echo "# delete the wav file"
+	echo "###############################"
+	rm $wavfile -fv
+    else
+        echo "$1 seems not an APE file."
+    fi
+}
+
+# ape_with_cue x.ape
+ape_with_cue() {
+    apefile=$1
+    #apebase=`dirname $apefile`"/"`basename $apefile .ape`
+    apebase=${apefile%.*}
+
+    flacpath=$apebase
+    wavfile=$apebase".wav"
+    flacfile=$apebase".flac"
+    cuefile=$apebase".cue"
+
+    if [ ! -f "$apefile" ]; then
+	echo "APE file '"$apefile"' does not exist."
+	exit $ERR_APE_NOT_EXIST
+    fi
+
+    if [ ! -f $cuefile ]; then
+	echo "CUE file '"$cuefile"' does not exist."
+	exit $ERR_CUE_NOT_EXIST
+    fi
+
+    echo >> $cuefile
+
+    ext=${1##*.}
+    if [ $ext == "ape" ] || [ $ext == "APE"]; then
+	echo
+	echo "##################################################"
+	echo "# "$apefile
+	echo "#("$cuefile")"
+	echo "#  | "
+	echo "#  V "
+	echo "# "$flacfile
+	echo "##################################################"
+
+	echo "ape file:  "$apefile
+	echo "wav file:  "$wavfile
+	echo "flac file: "$flacfile
+	echo "cue file:  "$cuefile
+
+	echo "###############################"
+	echo "# ape -> wav"
+	echo "###############################"
+	mac $apefile $wavfile -d
+	echo
+	echo "###############################"
+	echo "# wav -> flacs"
+	echo "###############################"
+	cuebreakpoints $cuefile | shnsplit -o 'flac' $wavfile
+	echo
+	echo "########################################"
+	echo "# delete the wav file"
+	echo "########################################"
+	rm $wavfile -fv
+    else
+        echo "$1 seems not an APE file."
+    fi
+}
+
+
+##################################################
+# HERE WE GO:
+##################################################
+check_bin mac
+check_bin flac
+check_bin cuebreakpoints
+check_bin shnsplit
+
+with_cue="no"
+del_ape="no"
+
+# Make sure this script is always usable even if there are spaces in any filename:
+SAVEIFS=$IFS
+# Remember to restore IFS before exiting!
+IFS=$(echo -en "\n\b")
+
+echo "--------------------------------------------------------------------------------"
+echo "$0 $@"
+
+if [ $# -eq 0 ]; then
+    printusage
+    exit 0
+fi
+#echo "OPTIND starts at $OPTIND"
+while getopts ":hcd:" optname
+do
+    case "$optname" in
+	"h")
+            printusage
+	    exit 0
+            ;;
+	"c")
+            with_cue="yes"
+            ;;
+	"d")
+	    level=$OPTARG
+	    if [ $level == "0" ]; then
+		del_ape="yes"
+	    elif [ $level == "1" ]; then
+		del_ape="yes"
+		del_cue="yes"
+	    else
+		echo "Bad option: -d "$OPTARG
+	    fi
+            ;;
+	"?")
+	    echo "Unknown option: $OPTARG"
+	    exit $ERR_BAD_PARAMETER
+            ;;
+	":")
+            echo "No argument value for option $OPTARG"
+            ;;
+	*)
+            # Should not occur
+            echo "Unknown error while processing options"
+            ;;
+    esac
+done
+echo "--------------------------------------------------------------------------------"
+
+shift $((OPTIND-1))
+while (($#)); do
+    apefile=$1
+    if [ "$with_cue" == "yes" ]; then
+	ape_with_cue $apefile
+    else
+	ape_without_cue $apefile
+    fi
+
+    if [ "$del_ape" == "yes" ]; then
+	echo
+	echo "###############################"
+	echo "# delete the ape file"
+	echo "###############################"
+	rm -fv $apefile
+    fi
+
+    if [ "$del_cue" == "yes" ]; then
+	if [ "$with_cue" == "yes" ]; then
+	    echo "Please delete cue file manually."
+	else
+	    echo "meaningless option ignored: \"-d 1\""
+	fi
+    fi
+    shift
+done
+
+# Restore IFS
+IFS=$SAVEIFS
+
+exit 0
+
+

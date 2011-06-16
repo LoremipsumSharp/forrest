@@ -1,0 +1,203 @@
+#!/bin/bash
+
+# Requirements
+# ============
+#
+# mac (Monkey's Audio codec)
+#     http://repository.slacky.eu/slackware-11.0/multimedia/mac/3.99-u4-b5/src/
+#
+# oggenc
+#     $ sudo apt-get install vorbis-tools
+#
+# mp3splt
+#     $ sudo apt-get install mp3splt
+
+# possible parameter(s):
+PARAMETER_HELP="--help"
+PARAMETER_WITH_CUE="--with-cue"
+PARAMETER_COMPROMISE="--compromise-mode"
+PARAMETER_DEL_ORIG="--del-orig"
+
+# exit codes:
+SUCCESS=0
+ERR_BAD_PARAMETER_COUNT=1
+ERR_APE_NOT_EXIST=2
+ERR_BAD_PARAMETER=3
+ERR_IMPOSSIBLE=10
+BAD_LUCK=11
+
+# usage:
+printusage(){
+    echo "Usage:"
+    echo -e "\t`basename $0` filename"
+    echo -e "\t`basename $0` $PARAMETER_WITH_CUE filename"
+    echo -e "\t`basename $0` $PARAMETER_WITH_CUE $PARAMETER_DEL_ORIG filename"
+}
+
+##################################################
+# HERE WE GO:
+##################################################
+exit_no=$ERR_IMPOSSIBLE
+
+# Make sure this script is always usable even if there are spaces in any filename:
+SAVEIFS=$IFS
+# Remember to restore IFS before exiting!
+IFS=$(echo -en "\n\b")
+
+#echo "Got "$#" parameters."
+
+if [ $# -eq 0 ] || [ $# -gt 3 ]; then
+    echo -e "`basename $0` only take 1 or 2 parameter(s)."
+    printusage
+    exit_no=$ERR_BAD_PARAMETER_COUNT
+elif [ $# -eq 1 ]; then
+    if [ $1 == "$PARAMETER_HELP" ]; then
+	printusage
+	exit_no=$SUCCESS
+    elif [ ${1:0:1} == "-" ]; then
+	if [ $1 == "$PARAMETER_WITH_CUE" ]; then
+	    printusage
+	    exit_no=$ERR_BAD_PARAMETER
+	else
+	    echo "Bad parameter: "$1
+	    printusage
+	    exit_no=$ERR_BAD_PARAMETER
+	fi
+    else
+	echo "Got 1 parameter, will now convert $1 into .ogg ..."
+	apefile=$1
+	oggpath=`basename $apefile .ape`
+	wavfile=`basename $apefile ape`wav
+	oggfile=`basename $apefile ape`ogg
+
+	if [ ! -f "$apefile" ]; then
+	    echo "APE file '"$apefile"' does not exist."
+	    exit_no=$ERR_APE_NOT_EXIST
+	fi
+
+	echo "###############################"
+	echo "# ape -> wav"
+	echo "###############################"
+	mac $apefile $wavfile -d
+	echo
+	echo "###############################"
+	echo "# wav -> ogg"
+	echo "###############################"
+	oggenc -q 10 $wavfile
+
+	echo "###############################"
+	echo "# delete the wav file"
+	echo "###############################"
+	rm $wavfile -f
+
+	echo "Done."
+    fi
+elif [ $# -eq 2 ] || [ $# -eq 3 ]; then
+    apefile=""
+    del_orig=0
+    if [ $# -eq 2 ]; then
+	apefile=$2
+	echo "Got 2 parameters, will now convert $2 into .ogg files ..."
+    elif [ $# -eq 3 ]; then
+	if [ $2 == "$PARAMETER_DEL_ORIG" ]; then
+	    del_orig=1
+	    apefile=$3
+	    echo "Got 3 parameters, will now convert $3 into .ogg files ..."
+	else
+	    echo "Bad parameter: "$2
+	    printusage
+	    exit_no=$ERR_BAD_PARAMETER
+	fi
+    fi
+
+    if [ ${apefile:0:1} == "-" ]; then
+	echo "Bad parameter: "$apefile
+	printusage
+	exit_no=$ERR_BAD_PARAMETER
+    else
+	if [ $1 == "$PARAMETER_COMPROMISE" ]; then
+	    echo "No longer makes sense."
+	    printusage
+	    exit_no=$ERR_BAD_PARAMETER
+	elif [ $1 == "$PARAMETER_WITH_CUE" ]; then
+	    oggpath=`basename $apefile .ape`
+	    wavfile=`basename $apefile ape`wav
+	    oggfile=`basename $apefile ape`ogg
+	    cuefile=`basename $apefile ape`cue
+
+	    if [ ! -f "$apefile" ]; then
+		echo "APE file '"$apefile"' does not exist."
+		exit_no=$ERR_APE_NOT_EXIST
+	    fi
+
+	    if [ ! -f $cuefile ]; then
+		echo "CUE file '"$cuefile"' does not exist."
+		exit_no=$ERR_CUE_NOT_EXIST
+	    fi
+
+			#echo "ape file: "$apefile
+			#echo "wav file: "$wavfile
+			#echo "ogg file: "$oggfile
+			#echo "cue file: "$cuefile
+
+	    if [ $del_orig -eq 0 ]; then
+		echo "###############################"
+		echo "# prepare the folder"
+		echo "###############################"
+		echo "creating & entering: "$oggpath
+		mkdir $oggpath
+		cd $oggpath
+		mv ../$apefile ../$cuefile ./
+		echo "Done."
+		echo
+	    fi
+
+	    echo "###############################"
+	    echo "# ape -> wav"
+	    echo "###############################"
+	    mac $apefile $wavfile -d
+	    echo
+	    echo "###############################"
+	    echo "# wav -> ogg"
+	    echo "###############################"
+	    oggenc -q 10 $wavfile
+	    echo
+	    echo "###############################"
+	    echo "# split the ogg"
+	    echo "###############################"
+	    mp3splt $oggfile -c $cuefile
+	    echo
+
+	    if [ $del_orig -eq 1 ]; then
+		echo "########################################"
+		echo "# delete the ape, cue, wav and ogg files"
+		echo "########################################"
+		rm $oggfile $wavfile $apefile $cuefile -f
+		echo "Done."
+	    else
+		echo "########################################"
+		echo "# delete the ogg file"
+		echo "########################################"
+		rm $oggfile -f
+		echo "Done."
+		cd -
+	    fi
+
+	    exit_no=$SUCCESS
+	else
+	    echo "Bad parameter: "$1
+	    printusage
+	    exit_no=$ERR_BAD_PARAMETER
+	fi
+    fi
+else
+    echo "This shouldn't have happened! Check the source code."
+    exit_no=$ERR_IMPOSSIBLE
+fi
+
+# Restore IFS
+IFS=$SAVEIFS
+
+# Only one exit point:
+exit $exit_no
+
