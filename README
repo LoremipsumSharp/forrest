@@ -1,0 +1,26 @@
+About this project
+==================
+
+This project contains my personal code I scrawl. I wrote them probably because:
+- I am learning something, so I'd better do some practice
+- I need some quick and dirty tool to solve my problem
+
+Because of these, the code is not supposed to be elegant and is far from perfect. However, you may find it useful for you if you are learning the same thing or you have similar problems to solve.
+
+
+Before building the code
+========================
+
+Some code use Graphviz <http://www.graphviz.org/> to output figures. Before building or running them, you should:
+- either install Graphviz, which is recommended
+- or comment out the lines calling ``system(cmd)''
+
+You can also download sample figures outputted by the code here:
+http://code.google.com/p/forrest/downloads/
+
+
+About me
+========
+
+I am Forrest Yu. My Email is forrest.yu [AT] Gmail. Read more about me: http://forrestyu.net/
+

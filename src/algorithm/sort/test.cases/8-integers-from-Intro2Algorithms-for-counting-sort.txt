@@ -1,0 +1,2 @@
+# from Introduction to Algorithms, p.169.        n=8,k=5
+2 5 3 0 2 3 0 3

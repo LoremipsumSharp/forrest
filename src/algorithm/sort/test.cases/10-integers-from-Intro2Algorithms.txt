@@ -1,0 +1,2 @@
+# from Introduction to Algorithms, p.128
+16 4 10 14 7 9 3 2 8 1
